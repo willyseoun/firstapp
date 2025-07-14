@@ -4,7 +4,7 @@ import numpy as np
 import altair as alt
 import datetime
 
-st.title("🌍 자동차 생산량 & 대기 중 CO₂ 농도 (1990–2024)")
+st.title("🌍 전 세계 자동차 생산량 & 대기 중 CO₂ 농도 변화 (1990–2024)")
 
 # 자동차 생산량 데이터
 data_auto = {
@@ -17,61 +17,64 @@ data_auto = {
     2023: 89_760_533, 2024: 92_504_338
 }
 
-# CO₂ 농도 데이터
+# CO₂ 농도 데이터 (ppm)
 data_co2 = {
     1990: 354.16, 1995: 358.83, 2000: 369.71, 2005: 379.80,
     2010: 389.85, 2015: 399.40, 2020: 414.24, 2022: 418.52,
     2023: 421.24, 2024: 422.80
 }
 
-# 전체 연도 생성
+# 전체 연도 목록
 years = list(range(1990, 2025))
 df = pd.DataFrame({"year": years})
 
-# 데이터 삽입 및 보간
+# 데이터 보간
 df["production"] = df["year"].map(data_auto)
 df["production"] = df["production"].interpolate()
 
 df["co2_ppm"] = df["year"].map(data_co2)
 df["co2_ppm"] = df["co2_ppm"].interpolate()
 
-# ✅ 슬라이더: 연도 범위 선택
+# ✅ 연도 선택 슬라이더
 min_year, max_year = st.slider(
-    "📅 시각화할 연도 범위를 선택하세요:",
+    "📅 분석할 연도 범위를 선택하세요:",
     min_value=min(years),
     max_value=max(years),
     value=(2000, 2024),
     step=1
 )
 
-# 슬라이더로 필터링된 데이터
+# 선택 범위 데이터 필터링
 df_filtered = df[(df["year"] >= min_year) & (df["year"] <= max_year)]
 
-# 📊 Altair 시각화 (듀얼 라인 그래프)
-st.markdown("### 📈 자동차 생산량 (백만 대) 및 CO₂ 농도 (ppm)")
-chart = alt.Chart(df_filtered).transform_fold(
-    ["production", "co2_ppm"], as_=["변수", "값"]
-).mark_line().encode(
+# 📊 자동차 생산량 그래프
+st.markdown("### 🚗 전 세계 자동차 생산량 (단위: 대)")
+auto_chart = alt.Chart(df_filtered).mark_line(color="steelblue").encode(
     x=alt.X("year:O", title="연도"),
-    y=alt.Y("값:Q", title="값", scale=alt.Scale(zero=False)),
-    color="변수:N"
-).properties(
-    width=700,
-    height=400
-)
-st.altair_chart(chart, use_container_width=True)
+    y=alt.Y("production:Q", title="자동차 생산량", scale=alt.Scale(zero=False))
+).properties(width=700, height=300)
+st.altair_chart(auto_chart, use_container_width=True)
+
+# 📈 CO₂ 농도 그래프
+st.markdown("### 🌫️ 대기 중 CO₂ 농도 (단위: ppm)")
+co2_chart = alt.Chart(df_filtered).mark_line(color="darkred").encode(
+    x=alt.X("year:O", title="연도"),
+    y=alt.Y("co2_ppm:Q", title="CO₂ 농도", scale=alt.Scale(zero=False))
+).properties(width=700, height=300)
+st.altair_chart(co2_chart, use_container_width=True)
 
 # 📋 데이터 테이블
-st.markdown("### 📋 선택된 연도 범위의 데이터")
+st.markdown("### 📋 선택한 연도 범위 데이터 미리보기")
 st.dataframe(df_filtered.reset_index(drop=True))
 
 # 📌 설명
 st.markdown("""
-**📌 설명**
-- 자동차 생산량: Wikipedia 실제 데이터 기반 (1990–2024)
-- CO₂ 농도: Mauna Loa 관측소 연평균 (NOAA 기준)
-- 보간법(interpolation)으로 중간 연도 보완
+**설명**
+- 🚗 자동차 생산량: Wikipedia 'World motor vehicle production' 기준  
+- 🌫️ CO₂ 농도: NOAA Mauna Loa 관측소 연평균 (전지구 표준 지표)  
+- 📈 중간 연도는 선형 보간 처리됨  
 """)
+
 
 
 
