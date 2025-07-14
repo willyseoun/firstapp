@@ -1,50 +1,78 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
+import altair as alt
 import datetime
 
-st.title("🌍 1990년부터 2024년까지 전 세계 자동차 생산량 시각화")
+st.title("🌍 자동차 생산량 & 대기 중 CO₂ 농도 (1990–2024)")
 
-# Wikipedia 기반 실제 데이터 (1990–2022) + 2023–2024 보간
-data_actual = {
+# 자동차 생산량 데이터
+data_auto = {
     1990: 38_564_516, 1995: 50_046_000, 2000: 58_374_162,
     2005: 66_482_439, 2009: 61_791_868, 2010: 77_857_705,
     2011: 79_989_155, 2012: 84_141_209, 2013: 87_300_115,
     2014: 89_747_430, 2015: 90_086_346, 2016: 94_976_569,
     2017: 97_302_534, 2018: 95_634_593, 2019: 91_786_861,
-    2020: 77_621_582, 2021: 80_145_988, 2022: 85_016_728
+    2020: 77_621_582, 2021: 80_145_988, 2022: 85_016_728,
+    2023: 89_760_533, 2024: 92_504_338
 }
 
-# 2023–2024 연속 추정 보간
-data_actual[2023] = 89_760_533  # (2022+2024)/2 보간
-data_actual[2024] = 92_504_338  # Wikipedia 최대 생산량 :contentReference[oaicite:2]{index=2}
+# CO₂ 농도 데이터
+data_co2 = {
+    1990: 354.16, 1995: 358.83, 2000: 369.71, 2005: 379.80,
+    2010: 389.85, 2015: 399.40, 2020: 414.24, 2022: 418.52,
+    2023: 421.24, 2024: 422.80
+}
 
-# 연도 범위
+# 전체 연도 생성
 years = list(range(1990, 2025))
-df = pd.DataFrame({"year": years, "production": np.nan})
+df = pd.DataFrame({"year": years})
 
-# 실제 알려진 연도값 직접 삽입
-known_years = sorted(data_actual.keys())
-for y in known_years:
-    df.loc[df["year"] == y, "production"] = data_actual[y]
-
-# 중간 연도는 직선 보간
+# 데이터 삽입 및 보간
+df["production"] = df["year"].map(data_auto)
 df["production"] = df["production"].interpolate()
 
-# 차트 출력
-st.line_chart(df.set_index("year")["production"])
+df["co2_ppm"] = df["year"].map(data_co2)
+df["co2_ppm"] = df["co2_ppm"].interpolate()
 
-# 데이터 테이블
-st.markdown("### 📋 최근 10년 데이터 미리보기")
-st.dataframe(df[df["year"] >= 2015].reset_index(drop=True))
+# ✅ 슬라이더: 연도 범위 선택
+min_year, max_year = st.slider(
+    "📅 시각화할 연도 범위를 선택하세요:",
+    min_value=min(years),
+    max_value=max(years),
+    value=(2000, 2024),
+    step=1
+)
 
-# 설명
+# 슬라이더로 필터링된 데이터
+df_filtered = df[(df["year"] >= min_year) & (df["year"] <= max_year)]
+
+# 📊 Altair 시각화 (듀얼 라인 그래프)
+st.markdown("### 📈 자동차 생산량 (백만 대) 및 CO₂ 농도 (ppm)")
+chart = alt.Chart(df_filtered).transform_fold(
+    ["production", "co2_ppm"], as_=["변수", "값"]
+).mark_line().encode(
+    x=alt.X("year:O", title="연도"),
+    y=alt.Y("값:Q", title="값", scale=alt.Scale(zero=False)),
+    color="변수:N"
+).properties(
+    width=700,
+    height=400
+)
+st.altair_chart(chart, use_container_width=True)
+
+# 📋 데이터 테이블
+st.markdown("### 📋 선택된 연도 범위의 데이터")
+st.dataframe(df_filtered.reset_index(drop=True))
+
+# 📌 설명
 st.markdown("""
-**설명:**
-- ✅ 1990–2022: Wikipedia 기반 실제 생산량 데이터 :contentReference[oaicite:3]{index=3}  
-- 📈 2023–2024: 보간값 포함  
-- 단위: 대 (전 세계 연간 신규 생산량)
+**📌 설명**
+- 자동차 생산량: Wikipedia 실제 데이터 기반 (1990–2024)
+- CO₂ 농도: Mauna Loa 관측소 연평균 (NOAA 기준)
+- 보간법(interpolation)으로 중간 연도 보완
 """)
+
 
 
 
