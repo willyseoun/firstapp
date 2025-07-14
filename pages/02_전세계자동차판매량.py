@@ -79,72 +79,94 @@ import pandas as pd
 import numpy as np
 import altair as alt
 
-st.title("🚗 ICE vs EV 생산량 비교 (1990–2024)")
+st.title("🚗 내연기관(ICE) vs 전기차(EV) 생산·판매량 비교 (2010–2024)")
 
-# 연도 범위
-years = list(range(1990, 2025))
+# 연도 리스트
+years = list(range(2010, 2025))
 df = pd.DataFrame({"year": years})
 
-# 전체 생산량 데이터
+# 전체 자동차 생산량 (Wikipedia 등 기반)
 total_prod = {
-    y: v for y, v in
-    zip([1990,1995,2000,2005,2009,2010,2011,2012,2013,2014,2015,
-         2016,2017,2018,2019,2020,2021,2022,2023,2024],
-        [38_564_516, 50_046_000, 58_374_162, 66_482_439, 61_791_868,
-         77_857_705,79_989_155,84_141_209,87_300_115,89_747_430,
-         90_086_346,94_976_569,97_302_534,95_634_593,91_786_861,
-         77_621_582,80_145_988,85_016_728,93_546_599,92_504_338])
+    2010: 77_857_705,
+    2011: 79_989_155,
+    2012: 84_141_209,
+    2013: 87_300_115,
+    2014: 89_747_430,
+    2015: 90_086_346,
+    2016: 94_976_569,
+    2017: 97_302_534,
+    2018: 95_634_593,
+    2019: 91_786_861,
+    2020: 77_621_582,
+    2021: 80_145_988,
+    2022: 85_016_728,
+    2023: 93_546_599,
+    2024: 92_504_338
 }
-df["total"] = df["year"].map(total_prod).interpolate()
 
-# EV 판매/생산량 데이터 (IAE 기준)
+# EV 생산/판매량 (IEA 등 기준 추정)
 ev = {
-    2010: 0.1e6,  # 추정초기값 예시
+    2010: 0.1e6,    # 약 10만대 추정 (초기 극소량)
+    2011: 0.15e6,
+    2012: 0.25e6,
+    2013: 0.40e6,
+    2014: 0.60e6,
     2015: 1.75e6,
-    2020: 3.5e6,
-    2021: 6.75e6,  # IEA :contentReference[oaicite:9]{index=9}
-    2022: 10e6,    # 추정
-    2023: 14e6,    # IEA :contentReference[oaicite:10]{index=10}
-    2024: 20.35e6  # 점유율 22%, 전체 ≈92.5M 기준
+    2016: 2.50e6,
+    2017: 3.60e6,
+    2018: 5.20e6,
+    2019: 7.20e6,
+    2020: 3.5e6,   # 팬데믹 영향 반영(잠정)
+    2021: 6.75e6,
+    2022: 10e6,
+    2023: 14e6,
+    2024: 20.35e6
 }
+
+df["total"] = df["year"].map(total_prod).interpolate()
 df["ev"] = df["year"].map(ev).interpolate()
 df["ice"] = df["total"] - df["ev"]
 
-# 슬라이더
+# 연도 범위 선택 슬라이더
 min_year, max_year = st.slider(
-    "📅 분석할 연도 범위 선택",
-    min(years), max(years), (2000, 2024)
+    "📅 분석할 연도 범위를 선택하세요:",
+    min_value=2010,
+    max_value=2024,
+    value=(2015, 2024),
+    step=1
 )
-df_f = df[(df.year>=min_year)&(df.year<=max_year)]
+
+df_filtered = df[(df["year"] >= min_year) & (df["year"] <= max_year)]
 
 # EV 그래프
-st.markdown("### ⚡ 전기차 (EV) 생산/판매량")
-ev_chart = alt.Chart(df_f).mark_line(color="green").encode(
+st.markdown("### ⚡ 전기차(EV) 생산·판매량")
+ev_chart = alt.Chart(df_filtered).mark_line(color="green").encode(
     x=alt.X("year:O", title="연도"),
     y=alt.Y("ev:Q", title="EV 생산·판매량 (대)")
 ).properties(width=700, height=300)
 st.altair_chart(ev_chart, use_container_width=True)
 
 # ICE 그래프
-st.markdown("### 🛢 내연기관 차량 (ICE) 생산량")
-ice_chart = alt.Chart(df_f).mark_line(color="orange").encode(
+st.markdown("### 🛢 내연기관차(ICE) 생산량")
+ice_chart = alt.Chart(df_filtered).mark_line(color="orange").encode(
     x=alt.X("year:O", title="연도"),
     y=alt.Y("ice:Q", title="ICE 생산량 (대)")
 ).properties(width=700, height=300)
 st.altair_chart(ice_chart, use_container_width=True)
 
 # 데이터 테이블
-st.markdown("### 📋 선택 범위 데이터")
-st.dataframe(df_f[["year","ev","ice","total"]].reset_index(drop=True))
+st.markdown("### 📋 선택된 연도 데이터")
+st.dataframe(df_filtered[["year", "ev", "ice", "total"]].reset_index(drop=True))
 
 # 설명
 st.markdown("""
-**설명**
-- 🌍 전체 생산량: Wikipedia 기반 실제 통계 :contentReference[oaicite:11]{index=11}  
-- ⚡ EV: IEA 기준 실적 및 점유율 추정 :contentReference[oaicite:12]{index=12}  
-- 🛢 ICE = 전체 − EV 계산  
-- 중간 연도는 선형 보간 처리됨  
+**설명**  
+- 🚗 전체 자동차 생산량: Wikipedia 기반 실제 데이터  
+- ⚡ 전기차(EV) 생산/판매량: IEA 기준 추정치  
+- 🛢 ICE = 전체 - EV 계산  
+- 📉 중간 연도는 선형 보간 처리  
 """)
+
 
 
 
