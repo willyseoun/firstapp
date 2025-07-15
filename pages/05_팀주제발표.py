@@ -42,11 +42,10 @@ st.markdown("ESG 점수와 환경 지표를 **수평 직선**으로 고정하여
 # 사이드바: 기업 정보
 st.sidebar.header("📌 기업 정보")
 st.sidebar.markdown(f"""
-- **기업명**: `{df['CompanyName'].iloc[0]}`
-- **산업군**: `{df['Industry'].iloc[0]}`
-- **지역**: `{df['Region'].iloc[0]}`
+**기업명**: `{df['CompanyName'].iloc[0]}`
+**산업군**: `{df['Industry'].iloc[0]}`
+**지역**: `{df['Region'].iloc[0]}`
 """)
-
 # ESG 점수 및 등급 테이블
 st.subheader("📈 ESG 점수 및 등급")
 st.dataframe(df[[
@@ -97,8 +96,8 @@ st.success("모든 ESG 항목이 양호한 수준입니다. 🎉")
 # 사이드바: 최신 등급 요약
 st.sidebar.subheader("📊 최신 등급 요약")
 st.sidebar.markdown(f"""
-- **환경 (E)**: `{get_grade(latest['ESG_Environmental'])}`
-- **사회 (S)**: `{get_grade(latest['ESG_Social'])}`
-- **지배구조 (G)**: `{get_grade(latest['ESG_Governance'])}`
-- **종합 ESG**: `{get_grade(latest['ESG_Overall'])}`
+**환경 (E)**: `{get_grade(latest['ESG_Environmental'])}`
+**사회 (S)**: `{get_grade(latest['ESG_Social'])}`
+**지배구조 (G)**: `{get_grade(latest['ESG_Governance'])}`
+**종합 ESG**: `{get_grade(latest['ESG_Overall'])}`
 """)
