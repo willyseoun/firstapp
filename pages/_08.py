@@ -1,140 +1,128 @@
 import streamlit as st
 import pandas as pd
-import matplotlib.pyplot as plt
 
+# 페이지 설정
 st.set_page_config(page_title="ESG 분석 대시보드", layout="wide")
 
-# ✅ 캐시 적용된 CSV 로딩
-@st.cache_data
-def load_data(file):
-return pd.read_csv(file)
-
+# CSV 파일명
 CSV_FILE = "esg_data.csv"
 
+# 데이터 불러오기
 try:
-df = load_data(CSV_FILE)
+    df = pd.read_csv(CSV_FILE)
 except FileNotFoundError:
-st.error(f"⚠️ '{CSV_FILE}' 파일이 존재하지 않습니다. 업로드 후 다시 실행해주세요.")
-st.stop()
+    st.error(f"⚠️ 데이터 파일 '{CSV_FILE}' 이(가) 존재하지 않습니다.\n같은 폴더에 CSV 파일을 올려주세요.")
+    st.stop()
 
-# ✅ 등급 산출 함수
+# ESG 등급 함수 정의
 def get_grade(score):
-if score >= 80:
-return "A (우수)"
-elif score >= 60:
-return "B (보통)"
-elif score >= 40:
-return "C (주의)"
-else:
-return "D (위험)"
+    if score >= 80:
+        return "A (우수)"
+    elif score >= 60:
+        return "B (보통)"
+    elif score >= 40:
+        return "C (주의)"
+    else:
+        return "D (위험)"
 
-# ✅ 등급 컬럼 생성
+# 등급 컬럼 추가
 df["Environmental_Grade"] = df["ESG_Environmental"].apply(get_grade)
 df["Social_Grade"] = df["ESG_Social"].apply(get_grade)
 df["Governance_Grade"] = df["ESG_Governance"].apply(get_grade)
 df["ESG_Grade"] = df["ESG_Overall"].apply(get_grade)
 
-latest = df.iloc[-1]
+# 연도 필터링
+years = df["Year"].unique()
+min_year, max_year = int(years.min()), int(years.max())
+selected_years = st.slider("🔍 분석할 연도 범위 선택", min_year, max_year, (min_year, max_year))
+filtered_df = df[df["Year"].between(*selected_years)]
 
-# ✅ 사이드바 요약 정보
-with st.sidebar:
-st.header("📌 기업 정보")
-st.markdown(f"""
+# 최근 데이터
+latest = filtered_df.iloc[-1]
+
+# 타이틀
+st.title("📊 ESG 분석 대시보드")
+st.markdown("한 기업의 연도별 ESG 추세 및 향후 개선 방향을 시각적으로 분석합니다.")
+
+# 사이드바 기업 정보
+st.sidebar.header("📌 기업 정보")
+st.sidebar.markdown(f"""
 - **기업명**: `{df['CompanyName'].iloc[0]}`
 - **산업군**: `{df['Industry'].iloc[0]}`
 - **지역**: `{df['Region'].iloc[0]}`
 """)
-st.subheader("📊 최신 등급 요약")
-st.markdown(f"""
-- 환경 (E): `{get_grade(latest['ESG_Environmental'])}`
-- 사회 (S): `{get_grade(latest['ESG_Social'])}`
-- 지배구조 (G): `{get_grade(latest['ESG_Governance'])}`
-- 종합 ESG: `{get_grade(latest['ESG_Overall'])}`
-""")
 
-# ✅ ESG 점수 테이블
-st.title("📊 ESG 분석 대시보드")
-st.markdown("기업의 ESG 점수 추세와 미래 개선 과제를 종합적으로 분석합니다.")
-
+# 점수 테이블
 st.subheader("📈 ESG 점수 및 등급")
-st.dataframe(df[[
-"Year", "ESG_Environmental", "Environmental_Grade",
-"ESG_Social", "Social_Grade",
-"ESG_Governance", "Governance_Grade",
-"ESG_Overall", "ESG_Grade"
+st.dataframe(filtered_df[[
+    "Year", "ESG_Environmental", "Environmental_Grade",
+    "ESG_Social", "Social_Grade",
+    "ESG_Governance", "Governance_Grade",
+    "ESG_Overall", "ESG_Grade"
 ]])
 
-# ✅ 직선형 그래프 함수 정의
-def plot_line_chart(df, y_columns, title, ylabel):
-fig, ax = plt.subplots()
-for col in y_columns:
-ax.plot(df["Year"], df[col], label=col, marker='o', linestyle='-')
-ax.set_title(title)
-ax.set_xlabel("Year")
-ax.set_ylabel(ylabel)
-ax.legend()
-ax.grid(True)
-st.pyplot(fig)
+# ESG 점수 추이 시각화
+st.subheader("📉 ESG 점수 변화 추이")
+col1, col2 = st.columns(2)
+with col1:
+    st.line_chart(filtered_df.set_index("Year")[["ESG_Environmental"]])
+    st.line_chart(filtered_df.set_index("Year")[["ESG_Social"]])
+with col2:
+    st.line_chart(filtered_df.set_index("Year")[["ESG_Governance"]])
+    st.line_chart(filtered_df.set_index("Year")[["ESG_Overall"]])
 
-# ✅ ESG 점수 변화 추이 그래프
-if st.checkbox("📉 ESG 점수 변화 추이 보기"):
-st.subheader("ESG 점수 변화 추이 (직선형)")
-plot_line_chart(
-df,
-["ESG_Environmental", "ESG_Social", "ESG_Governance", "ESG_Overall"],
-"ESG Score Trends",
-"Score"
-)
+# 환경 성과 시각화
+st.subheader("🌿 환경 성과 지표 (탄소, 물, 에너지)")
+eco1, eco2, eco3 = st.columns(3)
+with eco1:
+    st.metric("🌍 탄소배출량", f"{latest['CarbonEmissions']} tCO₂")
+    st.line_chart(filtered_df.set_index("Year")[["CarbonEmissions"]])
+with eco2:
+    st.metric("💧 물 사용량", f"{latest['WaterUsage']} tons")
+    st.line_chart(filtered_df.set_index("Year")[["WaterUsage"]])
+with eco3:
+    st.metric("⚡ 에너지 소비량", f"{latest['EnergyConsumption']} MWh")
+    st.line_chart(filtered_df.set_index("Year")[["EnergyConsumption"]])
 
-# ✅ 환경 성과 지표 그래프
-if st.checkbox("🌿 환경 성과 지표 보기"):
-st.subheader("환경 성과 지표 (직선형)")
-plot_line_chart(
-df,
-["CarbonEmissions", "WaterUsage", "EnergyConsumption"],
-"Environmental Performance Trends",
-"Usage / Emissions"
-)
+# 향후 과제 + 해결책 + 이점
+st.subheader("🛠️ 향후 ESG 개선 과제 및 기대 효과")
 
-# ✅ 향후 ESG 개선 과제 제안
-st.subheader("🛠️ 향후 ESG 개선 과제 및 해결 방안")
+problems = []
+solutions = []
+benefits = []
 
-st.markdown("**환경(E)**")
-st.markdown("- 과제: 탄소배출 과다 → ✅ *신재생에너지 전환*, *탄소배출권 거래 도입*")
-st.markdown("- 과제: 에너지 비효율 → ✅ *고효율 설비 도입*, *스마트팩토리 도입*")
+if latest["ESG_Environmental"] < 60:
+    problems.append("✔ **환경(E)**: 탄소 배출량이 높고, 에너지 효율이 낮음")
+    solutions.append("- **해결책**: 친환경 설비 도입, 재생 에너지 전환, 탄소 배출권 거래제 참여")
+    benefits.append("🎯 **이점**: 에너지 비용 절감, 정부 인센티브 확보, 브랜드 이미지 개선")
 
-st.markdown("**사회(S)**")
-st.markdown("- 과제: 직원 이직률 증가 → ✅ *복지 제도 강화*, *유연근무제 도입*")
-st.markdown("- 과제: 지역사회 기여 부족 → ✅ *지역 고용 연계*, *공헌활동 확대*")
+if latest["ESG_Social"] < 60:
+    problems.append("✔ **사회(S)**: 직원 복지 부족, 지역사회와의 연계 미흡")
+    solutions.append("- **해결책**: 사내 복지 강화, 다양성 프로그램 도입, 지역사회 투자 확대")
+    benefits.append("🎯 **이점**: 직원 만족도 및 생산성 향상, 지역사회 신뢰 구축")
 
-st.markdown("**지배구조(G)**")
-st.markdown("- 과제: 이사회 다양성 부족 → ✅ *여성·외부 이사 확대*")
-st.markdown("- 과제: 리스크 관리 미흡 → ✅ *내부통제 시스템 강화*, *정기 감사 확대*")
+if latest["ESG_Governance"] < 60:
+    problems.append("✔ **지배구조(G)**: 이사회 다양성 부족, 내부 통제 미흡")
+    solutions.append("- **해결책**: 외부 감사 도입, 여성 및 전문가 이사 비율 확대")
+    benefits.append("🎯 **이점**: 경영 투명성 향상, 투자자 신뢰 제고")
 
-# ✅ 개선 실행 시 기대 효과 시각화
-st.subheader("📈 ESG 개선 실행 시 점수 변화 시뮬레이션")
+if problems:
+    for i in range(len(problems)):
+        st.markdown(problems[i])
+        st.markdown(solutions[i])
+        st.markdown(benefits[i])
+        st.markdown("---")
+else:
+    st.success("모든 ESG 항목이 양호한 수준입니다. 🎉")
 
-# 시뮬레이션 데이터
-categories = ["환경 (E)", "사회 (S)", "지배구조 (G)"]
-before = [58, 61, 63] # 가상의 현재 점수
-after = [74, 78, 80] # 개선 후 기대 점수
+# 최신 등급 요약 (사이드바)
+st.sidebar.subheader("📊 최신 등급 요약")
+st.sidebar.markdown(f"""
+- **환경 (E)**: `{get_grade(latest['ESG_Environmental'])}`
+- **사회 (S)**: `{get_grade(latest['ESG_Social'])}`
+- **지배구조 (G)**: `{get_grade(latest['ESG_Governance'])}`
+- **종합 ESG**: `{get_grade(latest['ESG_Overall'])}`
+""")
 
-# 막대그래프
-fig, ax = plt.subplots()
-bar_width = 0.35
-x = range(len(categories))
-
-ax.bar(x, before, width=bar_width, label="개선 전", color="lightgray")
-ax.bar([i + bar_width for i in x], after, width=bar_width, label="개선 후", color="skyblue")
-
-ax.set_xlabel("ESG 항목")
-ax.set_ylabel("점수")
-ax.set_title("ESG 개선 실행 시 점수 변화 예측")
-ax.set_xticks([i + bar_width / 2 for i in x])
-ax.set_xticklabels(categories)
-ax.legend()
-ax.grid(axis="y")
-
-st.pyplot(fig)
-
-st.success("✅ ESG 개선 과제 실행 시 기업 이미지, 투자 유치, 지속가능성 등 다방면에서 이득을 기대할 수 있습니다.")
+# 다운로드 버튼
+st.download_button("📥 ESG 데이터 다운로드", data=filtered_df.to_csv(index=False), file_name="filtered_esg_data.csv", mime="text/csv")
