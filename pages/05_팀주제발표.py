@@ -1,79 +1,63 @@
 import streamlit as st
 import pandas as pd
-import matplotlib.pyplot as plt
 
-st.set_page_config(page_title="Apple vs Samsung ESG Dashboard", layout="wide")
+# 데이터 불러오기
+df = pd.read_csv("2cb6a9c6-f5dc-493f-b0a5-8ed161e99a3a.csv")
 
-# 데이터 정의
-years = list(range(2010, 2025))
+# 등급 기준 함수 정의
+def esg_grade(score):
+    if score >= 80:
+        return "A (우수)"
+    elif score >= 60:
+        return "B (보통)"
+    elif score >= 40:
+        return "C (주의)"
+    else:
+        return "D (위험)"
 
-apple = pd.DataFrame({
-"Year": years,
-"Carbon Emissions": [20.1, 23.1, 25.1, 27.8, 29.5, 29.5, 27.1, 25.2, 23.5, 22.1, 20.0, 18.1, 17.3, 16.2, 15.9],
-"Renewable Energy": [20, 27, 35, 42, 52, 60, 67, 75, 100, 100, 100, 100, 100, 100, 100],
-"Satisfaction": [None, None, None, None, None, 73, 74, 74, 76, 78, 78, 81, 82, 83, 84]
-})
+# 연도별 등급 계산
+df['Environmental_Grade'] = df['ESG_Environmental'].apply(esg_grade)
+df['Social_Grade'] = df['ESG_Social'].apply(esg_grade)
+df['Governance_Grade'] = df['ESG_Governance'].apply(esg_grade)
+df['ESG_Grade'] = df['ESG_Overall'].apply(esg_grade)
 
-samsung = pd.DataFrame({
-"Year": years,
-"Carbon Emissions": [28.3, 29.4, 30.6, 32.1, 34.4, 36.0, 37.8, 39.5, 41.2, 42.0, 43.3, 44.1, 45.2, 44.3, 43.0],
-"Renewable Energy": [10, 11, 12, 13, 15, 18, 20, 22, 25, 27, 30, 35, 40, 45, 50],
-"Satisfaction": [None, None, None, None, None, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77]
-})
+# Streamlit 앱 시작
+st.title("📊 기업 ESG 분석 대시보드")
 
-# 정규화 함수
-def normalize(series):
-return 100 * (series - series.min()) / (series.max() - series.min())
+st.subheader("🗂️ 기업 기본 정보")
+st.markdown(f"""
+- **기업명:** {df['CompanyName'][0]}
+- **산업군:** {df['Industry'][0]}
+- **지역:** {df['Region'][0]}
+""")
 
-def compute_esg(df):
-df = df.copy()
-df['Carbon Score'] = 100 - normalize(df['Carbon Emissions'])
-df['Satisfaction'] = df['Satisfaction'].fillna(method='ffill')
-df['Satisfaction Score'] = normalize(df['Satisfaction'])
-df['ESG Score'] = 0.4 * df['Carbon Score'] + 0.3 * df['Renewable Energy'] + 0.3 * df['Satisfaction Score']
-return df
+st.subheader("📈 연도별 ESG 점수 및 등급")
+st.dataframe(df[['Year', 'ESG_Environmental', 'Environmental_Grade',
+                 'ESG_Social', 'Social_Grade',
+                 'ESG_Governance', 'Governance_Grade',
+                 'ESG_Overall', 'ESG_Grade']])
 
-apple_esg = compute_esg(apple)
-samsung_esg = compute_esg(samsung)
+st.subheader("🌍 ESG 영역별 추이")
+st.line_chart(df.set_index('Year')[['ESG_Environmental', 'ESG_Social', 'ESG_Governance', 'ESG_Overall']])
 
-# UI 구성
-st.title("📊 Apple vs Samsung ESG 대시보드")
-st.markdown("### ESG 스코어 비교 (2010–2024)")
+st.subheader("⚠️ ESG 개선이 필요한 영역")
 
-selected_metric = st.selectbox("비교할 항목을 선택하세요:", ["ESG Score", "Carbon Emissions", "Renewable Energy", "Satisfaction"])
+latest = df.iloc[-1]  # 최신 연도 데이터
+recommendations = []
 
-fig, ax = plt.subplots(figsize=(10, 4))
-ax.plot(apple_esg["Year"], apple_esg[selected_metric], label="Apple", marker="o")
-ax.plot(samsung_esg["Year"], samsung_esg[selected_metric], label="Samsung", marker="s")
-ax.set_xlabel("Year")
-ax.set_ylabel(selected_metric)
-ax.set_title(f"{selected_metric} Trend")
-ax.grid(True)
-ax.legend()
-st.pyplot(fig)
+if latest['ESG_Environmental'] < 60:
+    recommendations.append("- **환경 (E)**: 탄소 배출 감축, 에너지 절약 설비 도입 필요")
+if latest['ESG_Social'] < 60:
+    recommendations.append("- **사회 (S)**: 직원 복지 개선, 지역사회 프로그램 확대 필요")
+if latest['ESG_Governance'] < 60:
+    recommendations.append("- **지배구조 (G)**: 이사회 투명성 확보, 내부통제 강화 필요")
 
-# 표로 데이터 확인
-st.markdown("### 📋 ESG 세부 지표 데이터")
-df_combined = pd.DataFrame({
-"Year": years,
-"Apple ESG Score": apple_esg["ESG Score"],
-"Samsung ESG Score": samsung_esg["ESG Score"],
-"Apple Carbon (MtCO₂)": apple["Carbon Emissions"],
-"Samsung Carbon (MtCO₂)": samsung["Carbon Emissions"],
-"Apple Renewable (%)": apple["Renewable Energy"],
-"Samsung Renewable (%)": samsung["Renewable Energy"],
-"Apple Satisfaction": apple["Satisfaction"],
-"Samsung Satisfaction": samsung["Satisfaction"]
-})
+if recommendations:
+    st.error("📌 현재 ESG 점수가 낮은 영역이 존재합니다.")
+    for r in recommendations:
+        st.markdown(r)
+else:
+    st.success("모든 ESG 항목이 양호한 수준입니다.")
 
-st.dataframe(df_combined.set_index("Year").round(2))
-
-# 다운로드 기능
-csv = df_combined.to_csv(index=False).encode('utf-8')
-st.download_button(
-"📥 ESG 데이터 CSV 다운로드",
-csv,
-"apple_samsung_esg.csv",
-"text/csv",
-key='download-csv'
-)
+st.subheader("💡 환경 성과 지표 (탄소, 에너지, 물)")
+st.line_chart(df.set_index('Year')[['CarbonEmissions', 'EnergyConsumption', 'WaterUsage']])
